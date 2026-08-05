@@ -1,0 +1,7 @@
+{
+  "name": "@hydrooj/sixth-ui",
+  "version": "0.1.0",
+  "description": "Hexagonal postmodern interface for SixthOJ",
+  "license": "AGPL-3.0-or-later",
+  "main": "index.ts"
+}

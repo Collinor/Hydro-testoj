@@ -1,0 +1,39 @@
+{% set page_name = "homepage" %}
+{% extends "layout/basic.html" %}
+{% import "components/contest.html" as contest with context %}
+{% import "components/problem.html" as problem with context %}
+{% import "components/user.html" as user with context %}
+{% block content %}
+<section class="sixth-hub" aria-label="{{ _('Navigation') }}">
+  <a class="sixth-hub__core" href="{{ url('homepage') }}" aria-current="page">
+    <span>{{ UiContext.sixthUi.brand }}</span>
+  </a>
+  <nav class="sixth-hub__branches" aria-label="{{ _('Navigation') }}">
+    {%- for item in ui.getNodes('Nav') -%}{% if item.checker(handler) %}
+      <a
+        class="sixth-hub__branch sixth-hub__branch--{{ loop.index }}"
+        href="{{ url(item.name, item.args, query=item.args.query(handler) if typeof(item.args.query) == 'function' else item.args.query or {}) }}"
+      >
+        <span>{{ _(item.displayName or item.name) }}</span>
+      </a>
+    {% endif %}{%- endfor -%}
+  </nav>
+</section>
+<div class="sixth-home-grid">
+  {% for column in contents %}
+    <div class="sixth-home-grid__column">
+      {% for s in column.sections %}
+        <div class="sixth-home-grid__item">
+          {% if templateExists("partials/homepage/" + s[0] + ".html") %}
+            {% set payload = s[1] %}
+            {% include "partials/homepage/" + s[0] + ".html" %}
+          {% else %}
+            {% set payload = _("Template {0} not found.").format(s[0]) %}
+            {% include "partials/homepage/error.html" %}
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
