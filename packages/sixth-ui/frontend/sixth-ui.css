@@ -1,6 +1,6 @@
 :root {
-  --sixth-hexagon: polygon(25% 2%, 75% 2%, 98% 50%, 75% 98%, 25% 98%, 2% 50%);
-  --sixth-hexagon-wide: polygon(4% 0, 96% 0, 100% 50%, 96% 100%, 4% 100%, 0 50%);
+  --sixth-hexagon: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  --sixth-cut-corners: polygon(4% 0, 96% 0, 100% 35%, 100% 65%, 96% 100%, 4% 100%, 0 65%, 0 35%);
   --sixth-gap: clamp(0.75rem, 1.8vw, 1.5rem);
   --sixth-radius-gap: clamp(0.6rem, 1.2vw, 1rem);
   --sixth-motion: 220ms cubic-bezier(0.2, 0.75, 0.25, 1);
@@ -67,18 +67,19 @@
 .sixth-ui .nav__item--round,
 .sixth-ui .sixth-wordmark {
   display: grid;
-  min-width: 4.8rem;
-  min-height: 2.75rem;
+  width: calc(var(--nav-hex-size, 5.4rem) * var(--hex-size-scale, 1));
+  aspect-ratio: 2 / 1.7320508075688772;
   place-items: center;
-  padding: 0.55rem 1.2rem;
+  padding: 0.45rem 0.7rem;
   color: var(--sixth-text);
   background: color-mix(in srgb, var(--sixth-theme) 86%, var(--sixth-background));
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-hexagon);
+  text-align: center;
   transition: transform var(--sixth-motion), background-color var(--sixth-motion), opacity var(--sixth-motion);
 }
 
 .sixth-ui .sixth-wordmark {
-  min-width: 6.7rem;
+  --nav-hex-size: 7.2rem;
   color: var(--sixth-title);
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -125,7 +126,7 @@
   inset: 0;
   background: color-mix(in srgb, var(--sixth-theme) 91%, var(--sixth-background));
   box-shadow: 0 0.55rem 1.4rem var(--sixth-shadow-color);
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
   content: '';
   transition: transform var(--sixth-motion), background-color var(--sixth-motion);
 }
@@ -171,7 +172,7 @@
 .sixth-ui button {
   min-height: 2.75rem;
   padding-inline: 1.35rem;
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
   box-shadow: 0 0.35rem 0.9rem var(--sixth-shadow-color);
 }
 
@@ -192,14 +193,14 @@
   padding-block: 0.65rem;
   background: color-mix(in srgb, var(--sixth-theme) 72%, var(--sixth-background));
   box-shadow: 0 0.4rem 1.1rem var(--sixth-shadow-color);
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
 }
 
 .sixth-ui .menu__link {
   margin: 0.28rem 0.9rem;
   padding: 0.68rem 1.2rem;
   color: var(--sixth-text);
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
 }
 
 .sixth-ui .menu__link:hover,
@@ -213,9 +214,9 @@
 .sixth-hub {
   position: relative;
   display: grid;
-  min-height: clamp(27rem, 64vw, 43rem);
+  min-height: clamp(28rem, 52vw, 36rem);
   place-items: center;
-  margin: 0 auto clamp(2rem, 6vw, 5rem);
+  margin: 0 auto clamp(1.5rem, 4vw, 3.5rem);
   container-type: inline-size;
 }
 
@@ -234,8 +235,8 @@
 
 .sixth-hub__core {
   z-index: 2;
-  width: clamp(11.5rem, 30cqw, 18rem);
-  aspect-ratio: 1.08;
+  width: calc(clamp(12rem, 19cqw, 15rem) * var(--hex-size-scale, 1));
+  aspect-ratio: 2 / 1.7320508075688772;
   color: var(--sixth-title);
   font-size: clamp(1.65rem, 5cqw, 3.4rem);
   font-weight: 900;
@@ -254,8 +255,10 @@
 
 .sixth-hub__branch {
   position: absolute;
-  width: clamp(7.2rem, 17cqw, 10.5rem);
-  aspect-ratio: 1.08;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--branch-size) * var(--hex-size-scale, 1));
+  aspect-ratio: 2 / 1.7320508075688772;
   padding: 1.2rem;
   background: color-mix(in srgb, var(--sixth-theme) calc(82% + var(--branch-tone, 0%)), var(--sixth-background));
   font-weight: 700;
@@ -269,17 +272,18 @@
   transform: scale(1.055) rotate(0);
 }
 
-.sixth-hub__branch--1 { inset: 4% auto auto 19%; --branch-tone: 3%; }
-.sixth-hub__branch--2 { inset: 8% 17% auto auto; --branch-tone: -4%; }
-.sixth-hub__branch--3 { inset: 35% auto auto 4%; --branch-tone: -2%; }
-.sixth-hub__branch--4 { inset: 39% 2% auto auto; --branch-tone: 5%; }
-.sixth-hub__branch--5 { inset: auto auto 3% 18%; --branch-tone: -5%; }
-.sixth-hub__branch--6 { inset: auto 17% 1% auto; --branch-tone: 2%; }
+.sixth-hub__branch--1 { --branch-size: clamp(8.1rem, 12cqw, 9.3rem); --branch-tone: 3%; translate: calc(-50% - 5.35rem) calc(-50% - 11.15rem); }
+.sixth-hub__branch--2 { --branch-size: clamp(8.7rem, 13cqw, 10rem); --branch-tone: -4%; translate: calc(-50% + 5.35rem) calc(-50% - 11.15rem); }
+.sixth-hub__branch--3 { --branch-size: clamp(7.9rem, 11.5cqw, 9rem); --branch-tone: -2%; translate: calc(-50% - 12.85rem) -50%; }
+.sixth-hub__branch--4 { --branch-size: clamp(8.4rem, 12.5cqw, 9.7rem); --branch-tone: 5%; translate: calc(-50% + 12.85rem) -50%; }
+.sixth-hub__branch--5 { --branch-size: clamp(8.6rem, 12.8cqw, 9.8rem); --branch-tone: -5%; translate: calc(-50% - 5.35rem) calc(-50% + 11.15rem); }
+.sixth-hub__branch--6 { --branch-size: clamp(8rem, 11.8cqw, 9.2rem); --branch-tone: 2%; translate: calc(-50% + 5.35rem) calc(-50% + 11.15rem); }
 .sixth-hub__branch:nth-child(n + 7) {
   position: relative;
   inset: 100% auto auto;
   display: inline-grid;
   margin: 0.4rem;
+  translate: none;
 }
 
 .sixth-home-grid {
@@ -308,7 +312,7 @@
   width: 6.5rem;
   color: var(--sixth-title);
   background: color-mix(in srgb, var(--sixth-accent) 22%, var(--sixth-theme));
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
   text-align: center;
   font-weight: 800;
 }
@@ -319,13 +323,13 @@
 }
 
 .sixth-ui .page--problem_main .data-table > thead {
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
 }
 
 .sixth-ui .page--problem_main .data-table > tbody > tr {
   background: color-mix(in srgb, var(--sixth-theme) 72%, var(--sixth-background));
   box-shadow: 0 0.32rem 0.85rem var(--sixth-shadow-color);
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
 }
 
 .sixth-ui .page--problem_main .data-table > tbody > tr:hover {
@@ -344,22 +348,24 @@
   margin: var(--sixth-gap);
   background-color: color-mix(in srgb, var(--sixth-accent) 36%, var(--sixth-theme));
   background-blend-mode: soft-light;
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
 }
 
 .sixth-ui .page--user_detail .user-profile-avatar,
 .sixth-ui .page--home_settings #upload_avatar img,
 .sixth-ui .user-profile-avatar {
+  aspect-ratio: 2 / 1.7320508075688772;
   border: 0.28rem solid var(--sixth-theme);
   border-radius: 0;
   box-shadow: 0 0.45rem 1rem var(--sixth-shadow-color);
   clip-path: var(--sixth-hexagon);
+  object-fit: cover;
 }
 
 .sixth-ui .page--user_detail .profile-header__contact-item {
   display: inline-grid;
   width: 3rem;
-  aspect-ratio: 1.08;
+  aspect-ratio: 2 / 1.7320508075688772;
   place-items: center;
   margin: 0.25rem;
   color: var(--sixth-text);
@@ -382,7 +388,7 @@
   margin-block: var(--sixth-radius-gap);
   padding: 1rem clamp(1.1rem, 3vw, 2.4rem);
   background: color-mix(in srgb, var(--sixth-theme) 58%, var(--sixth-background));
-  clip-path: var(--sixth-hexagon-wide);
+  clip-path: var(--sixth-cut-corners);
 }
 
 .sixth-ui .footer {
@@ -402,7 +408,7 @@
 
   .sixth-hub__core {
     position: relative;
-    width: min(60vw, 14rem);
+    width: calc(min(54vw, 13rem) * var(--hex-size-scale, 1));
     margin-bottom: 1.5rem;
   }
 
@@ -411,13 +417,14 @@
     display: grid;
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--sixth-gap);
+    gap: 0.65rem;
   }
 
   .sixth-hub__branch {
     position: static;
-    width: min(100%, 10rem);
+    width: calc(min(100%, var(--branch-size)) * var(--hex-size-scale, 1));
     justify-self: center;
+    translate: none;
   }
 
   .sixth-ui .section::before,

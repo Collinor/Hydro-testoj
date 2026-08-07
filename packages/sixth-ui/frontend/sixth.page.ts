@@ -36,6 +36,19 @@ const colorProperties: Record<keyof Palette, string> = {
 const storageKey = 'sixth-ui/palette';
 const context = UiContext.sixthUi as SixthUIContext;
 
+function applyHexagonSizeVariation() {
+  const hexagons = document.querySelectorAll<HTMLElement>(
+    '.sixth-hub__core, .sixth-hub__branch, .nav__list > .nav__list-item .nav__item, .nav__list > .nav__list-item .nav__item--round',
+  );
+  if (!hexagons.length) return;
+  const randomValues = new Uint16Array(hexagons.length);
+  crypto.getRandomValues(randomValues);
+  hexagons.forEach((hexagon, index) => {
+    const scale = 0.94 + (randomValues[index] / 65535) * 0.12;
+    hexagon.style.setProperty('--hex-size-scale', scale.toFixed(4));
+  });
+}
+
 function isCssColor(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   return CSS.supports('color', value);
@@ -94,6 +107,7 @@ document.documentElement.classList.add('sixth-ui');
 document.documentElement.dataset.app = context.brand;
 applyPalette(context.palette);
 window.addEventListener('DOMContentLoaded', updateShadow, { once: true });
+window.addEventListener('DOMContentLoaded', applyHexagonSizeVariation, { once: true });
 
 if (context.allowUserPalette) {
   try {
