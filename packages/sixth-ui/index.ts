@@ -49,11 +49,11 @@ export function apply(ctx: Context) {
                 .default('cheese')
                 .description('Color preset'),
             allowUserPalette: Schema.boolean().default(true).description('Allow browser-local user palettes'),
-            customBackground: colorSetting('Custom background color', ''),
+            customBackground: colorSetting('Custom surface blend color', ''),
             customTheme: colorSetting('Custom component color', ''),
             customTitle: colorSetting('Custom title color', ''),
             customText: colorSetting('Custom text color', ''),
-            customAccent: colorSetting('Custom accent color', ''),
+            customAccent: colorSetting('Custom page background color', ''),
         }).description('Sixth UI'),
     }));
 

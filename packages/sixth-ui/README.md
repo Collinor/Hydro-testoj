@@ -12,4 +12,4 @@ The `cheese` preset is defined in `presets.ts`. Add future presets there so comp
 
 When `sixth-ui.allowUserPalette` is enabled, integrations can call `window.SixthUI.applyPalette(colors, true)` to validate and save browser-local overrides. `window.SixthUI.resetPalette()` removes them and restores the server palette.
 
-The supported color keys are `background`, `theme`, `title`, `text`, and `accent`.
+The supported color keys are `background`, `theme`, `title`, `text`, and `accent`. `accent` fills the page background, while `theme` fills regular hexagonal navigation blocks.
