@@ -16,10 +16,13 @@ export interface CheckConfig {
     env?: Record<string, string>;
 }
 
+export interface PassInfo { input: CopyInFile, state?: Record<string, CopyInFile>, dispose: () => PromiseLike<any> }
+
 type Checker = (config: CheckConfig) => Promise<{
     status: number;
     score: number;
-    message: string;
+    message: string | { message: string, params?: any[] };
+    nextPass?: PassInfo;
 }>;
 
 function parseDiffMsg(msg: string) {
@@ -31,8 +34,8 @@ function parseDiffMsg(msg: string) {
         const lline = meta.split('L=')[1];
         if (lline?.trim() === 'EOF') {
             const next = u.split('EOF on ')[1].split(' ')[0];
-            if (next === 'usrout.processed') return 'Standard answer longer than user output.';
-            if (next === 'answer.processed') return 'User output longer than standard answer.';
+            if (next === 'usrout.processed') return { message: 'Standard answer longer than user output.', params: [] };
+            if (next === 'answer.processed') return { message: 'User output longer than standard answer.', params: [] };
             return `Unable to parse: ${u}`;
         }
         const lineNum = +lline;
@@ -41,8 +44,8 @@ function parseDiffMsg(msg: string) {
         const std = t.trim().split(' ');
         if (std.every((x) => !Number.isNaN(+x))) {
             // Number mode, report length not match
-            if (usr.length > std.length) return 'User output longer than standard answer.';
-            if (usr.length < std.length) return 'Standard answer longer than user output.';
+            if (usr.length > std.length) return { message: 'User output longer than standard answer.', params: [] };
+            if (usr.length < std.length) return { message: 'Standard answer longer than user output.', params: [] };
         }
         for (let i = 0; i < usr.length; i++) {
             if (usr[i] === std[i]) continue;
@@ -118,7 +121,7 @@ const getDefaultChecker = (strict: boolean) => async (config: CheckConfig) => {
         status = STATUS.STATUS_WRONG_ANSWER;
         if (config.detail === 'full') message = parseDiffMsg(stdout);
     } else status = STATUS.STATUS_ACCEPTED;
-    if (message.length > 1024000) message = '';
+    if (typeof message === 'string' && message.length > 1024000) message = '';
     return {
         score: status === STATUS.STATUS_ACCEPTED ? config.score : 0,
         status,
@@ -236,7 +239,7 @@ const checkers: Record<string, Checker> = new Proxy({
     },
 
     async testlib(config) {
-        const { stderr, status, code } = await runQueued(`${config.execute} /w/in /w/user_out /w/answer`, {
+        const { stderr, status, code, fileIds, [Symbol.asyncDispose]: dispose } = await runQueued(`${config.execute} /w/in /w/user_out /w/answer`, {
             copyIn: {
                 in: config.input,
                 user_out: config.user_stdout,
@@ -245,6 +248,7 @@ const checkers: Record<string, Checker> = new Proxy({
                 ...config.copyIn,
             },
             env: config.env,
+            copyOutCached: ['nextpass.in?', 'state.txt?'],
         });
         if ([STATUS.STATUS_SYSTEM_ERROR, STATUS.STATUS_TIME_LIMIT_EXCEEDED, STATUS.STATUS_MEMORY_LIMIT_EXCEEDED].includes(status)) {
             const message = {
@@ -252,6 +256,7 @@ const checkers: Record<string, Checker> = new Proxy({
                 [STATUS.STATUS_TIME_LIMIT_EXCEEDED]: 'Checker Time Limit Exceeded',
                 [STATUS.STATUS_MEMORY_LIMIT_EXCEEDED]: 'Checker Memory Limit Exceeded',
             }[status];
+            dispose();
             return {
                 status: STATUS.STATUS_SYSTEM_ERROR,
                 score: 0,
@@ -259,18 +264,31 @@ const checkers: Record<string, Checker> = new Proxy({
             };
         }
         if (status === STATUS.STATUS_RUNTIME_ERROR && !stderr?.trim()) {
+            dispose();
             return {
                 status: STATUS.STATUS_SYSTEM_ERROR,
                 score: 0,
                 message: `Checker exited with code ${code}`,
             };
         }
-        return parse(stderr, config.score, config.detail);
+        const result = parse(stderr, config.score, config.detail);
+        if (result.status === STATUS.STATUS_ACCEPTED && fileIds['nextpass.in']) {
+            return {
+                ...result,
+                nextPass: {
+                    input: { fileId: fileIds['nextpass.in'] },
+                    state: fileIds['state.txt'] ? { 'state.txt': { fileId: fileIds['state.txt'] } } : undefined,
+                    dispose,
+                },
+            };
+        }
+        dispose();
+        return result;
     },
 
     // https://www.kattis.com/problem-package-format/spec/2023-07-draft.html#output-validator
     async kattis(config) {
-        const { files, code } = await runQueued(`${config.execute} input answer_file feedback_dir`, {
+        const { files, fileIds, code, [Symbol.asyncDispose]: dispose } = await runQueued(`${config.execute} input answer_file feedback_dir`, {
             copyIn: {
                 input: config.input,
                 answer_file: config.output,
@@ -283,6 +301,10 @@ const checkers: Record<string, Checker> = new Proxy({
                 'feedback_dir/judgemessage.txt?',
                 'feedback_dir/teammessage.txt?',
                 'feedback_dir/judgeerror.txt?',
+            ],
+            copyOutCached: [
+                'feedback_dir/nextpass.in?',
+                'feedback_dir/state.txt?',
             ],
         });
 
@@ -302,6 +324,22 @@ const checkers: Record<string, Checker> = new Proxy({
                 ? files['feedback_dir/teammessage.txt'] || files['feedback_dir/judgemessage.txt'] || ''
                 : '';
 
+        if (status === STATUS.STATUS_ACCEPTED && fileIds['feedback_dir/nextpass.in']) {
+            return {
+                status,
+                score,
+                message,
+                nextPass: {
+                    input: { fileId: fileIds['feedback_dir/nextpass.in'] },
+                    state: fileIds['feedback_dir/state.txt']
+                        ? { 'feedback_dir/state.txt': { fileId: fileIds['feedback_dir/state.txt'] } }
+                        : undefined,
+                    dispose,
+                },
+            };
+        }
+
+        dispose();
         return { status, score, message };
     },
 }, {

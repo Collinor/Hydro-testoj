@@ -31,7 +31,10 @@ import {
 } from '../service/server';
 
 async function successfulAuth(this: Handler, udoc: User) {
-    if (udoc._id !== 0) await user.setById(udoc._id, { loginat: new Date(), loginip: this.request.ip });
+    if (udoc._id !== 0) {
+        await this.ctx.serial('auth/before-login', this, udoc);
+        await user.setById(udoc._id, { loginat: new Date(), loginip: this.request.ip });
+    }
     this.context.HydroContext.user = udoc;
     this.session.viewLang = '';
     this.session.uid = udoc._id;
@@ -40,15 +43,23 @@ async function successfulAuth(this: Handler, udoc: User) {
     this.session.scope = PERM.PERM_ALL.toString();
     this.session.oauthBind = null;
     this.session.recreate = true;
-    if (udoc._id !== 0) await oplog.log(this, 'user.loginSuccess', { uid: udoc._id });
+    if (udoc._id !== 0) {
+        await oplog.log(this, 'user.loginSuccess', { uid: udoc._id });
+        await this.ctx.serial('auth/login', this, udoc);
+    }
 }
 
 class UserLoginHandler extends Handler {
     noCheckPermView = true;
 
-    async get() {
+    @param('redirect', Types.String, true)
+    async get(domainId: string, redirect: string = '') {
         this.response.template = 'user_login.html';
-        this.response.body.loginMethods = this.loginMethods;
+        this.response.body = {
+            redirect,
+            builtInLogin: system.get('server.login'),
+            loginMethods: this.loginMethods,
+        };
     }
 
     @param('uname', Types.Username)
@@ -292,8 +303,12 @@ class UserRegisterWithCodeHandler extends Handler {
     }
 
     async get() {
+        const provider = this.ctx.oauth.providers[this.tdoc.identity.provider];
         this.response.template = 'user_register_with_code.html';
-        this.response.body = this.tdoc;
+        this.response.body = {
+            ...this.tdoc,
+            lockUsername: !!provider?.lockUsername,
+        };
     }
 
     @param('password', Types.Password)
@@ -306,7 +321,7 @@ class UserRegisterWithCodeHandler extends Handler {
     ) {
         const provider = this.ctx.oauth.providers[this.tdoc.identity.provider];
         if (!provider) throw new SystemError(`OAuth provider ${this.tdoc.identity.provider} not found`);
-        if (provider.lockUsername) uname = this.tdoc.identity.username;
+        if (provider.lockUsername) uname = this.tdoc.username;
         if (!Types.Username[1](uname)) throw new ValidationError('uname');
         if (password !== verify) throw new VerifyPasswordError();
         const randomEmail = `${randomstring(12)}@invalid.local`; // some random email to remove in the future
@@ -455,7 +470,9 @@ class OauthHandler extends Handler {
     noCheckPermView = true;
 
     @param('type', Types.Key)
-    async get(domainId: string, type: string) {
+    @param('redirect', Types.String, true)
+    async get(domainId: string, type: string, redirect = '') {
+        this.session.oauthRedirect = redirect;
         await this.ctx.oauth.providers[type]?.get.call(this);
     }
 }
@@ -473,27 +490,29 @@ class OauthCallbackHandler extends Handler {
         if (this.session.oauthBind === args.type) {
             delete this.session.oauthBind;
             if (existing.some((id) => id && id !== this.user._id)) {
-                throw new BadRequestError('Already binded to another account');
+                throw new BadRequestError('Already bound to another account');
             }
-            this.response.redirect = '/home/security';
+            this.response.redirect = this.session.oauthRedirect || this.url('home_security');
+            delete this.session.oauthRedirect;
             await Promise.all(ids.map((i) => this.ctx.oauth.set(args.type, i, this.user._id)));
             return;
         }
         const effective = existing.find((i) => i);
-
         if (effective) {
             await successfulAuth.call(this, await user.getById('system', effective));
-            this.response.redirect = '/';
+            this.response.redirect = this.session.oauthRedirect || this.url('homepage');
+            delete this.session.oauthRedirect;
             return;
         }
         const udoc = await user.getByEmail('system', r.email);
         if (udoc) {
             await Promise.all(ids.map((i) => this.ctx.oauth.set(args.type, i, udoc._id)));
             await successfulAuth.call(this, udoc);
-            this.response.redirect = '/';
+            this.response.redirect = this.session.oauthRedirect || this.url('homepage');
+            delete this.session.oauthRedirect;
             return;
         }
-        if (!provider.canRegister) throw new ForbiddenError('No binded account found');
+        if (!provider.canRegister) throw new ForbiddenError('No bound account found');
         this.checkPriv(PRIV.PRIV_REGISTER_USER);
         let username = '';
         r.uname ||= [];

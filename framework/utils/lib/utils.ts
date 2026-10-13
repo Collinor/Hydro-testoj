@@ -38,6 +38,7 @@ export const Logger = createLogger as any as Logger;
 
 const encrypt = (algorithm, content) => crypto.createHash(algorithm).update(content).digest('hex');
 export const sha1 = (content: string) => encrypt('sha1', content);
+export const sha256 = (content: string) => encrypt('sha256', content);
 export const md5 = (content: string) => encrypt('md5', content);
 
 export function folderSize(folderPath: string) {
@@ -169,8 +170,15 @@ export const Time = {
     },
 };
 
+export function unwrapAggregateError(error: any): any {
+    return error instanceof Error && Array.isArray((error as any).errors) && (error as any).errors.length
+        ? unwrapAggregateError((error as any).errors[0])
+        : error;
+}
+
 export function errorMessage(err: Error | string) {
-    const t = typeof err === 'string' ? err : err.stack;
+    err = unwrapAggregateError(err);
+    const t = typeof err === 'string' ? err : err.stack || err.message || String(err);
     const lines = t.split('\n')
         .filter((i) => !i.includes(' (node:') && !i.includes('(internal'));
     let cursor = 1;

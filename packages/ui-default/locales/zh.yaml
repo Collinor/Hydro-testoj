@@ -87,6 +87,9 @@ Add prefix/suffix: 添加前缀/后缀
 Add suffix: 添加后缀
 Add testcase: 添加测试点
 Add User: 添加用户
+Cancel Registration: 取消报名
+Registration cancelled.: 报名已取消。
+Are you sure to cancel the registration of this user?: 确定要取消该用户的报名吗？
 Add: 添加
 Additional Files: 附加文件
 additional_file: 附加文件
@@ -422,7 +425,6 @@ Forgot Password and/or Username: 忘记密码和/或用户名
 Forgot password or username?: 忘记密码或者用户名？
 Formula blocks: 公式区块
 Freeze scoreboard with N minutes remaining: 在赛事剩余N分钟时封榜
-Keep scoreboard hidden even after contest ends: 即使比赛结束后也保持成绩表隐藏
 fs_upload: 上传文件
 Gender Visibility: 性别可见性
 Gender: 性别
@@ -523,6 +525,7 @@ Judged By: 评测机
 Judging Queue: 评测队列
 just now: 刚刚
 Keep current expiration: 保持当前过期设置
+Keep scoreboard hidden even after contest ends: 即使比赛结束后也保持成绩表隐藏
 Langs Config: 语言设置
 langs: 语言
 Language: 语言
@@ -572,6 +575,7 @@ Mark Green: 标绿
 Mark Red: 标红
 Mark user as joined using admin privilege: 使用管理员权限将用户标记为已加入
 Mark Yellow: 标黄
+Max Passes: 最大轮次
 Memory Cost: 内存占用
 Memory Info: 内存信息
 Memory: 内存
@@ -965,6 +969,7 @@ There are no contests...: 没有比赛…
 There are no files currently.: 目前还没有文件。
 There is no homework so far ╰(*°▽°*)╯: 目前还没有作业 ╰(*°▽°*)╯
 This contest is not live.: 比赛没有开始。
+This contest has already started.: 比赛已开始。
 This email was sent by {0} automatically, and please do not reply directly.: 这封邮件由 {0} 自动发送，请勿直接回复。
 This homework is not open and you cannot view problems.: 该作业还未到开放时间，您无法查看作业题目。
 This homework is not open.: 该作业还未开放递交。

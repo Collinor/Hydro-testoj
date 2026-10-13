@@ -56,6 +56,7 @@ export interface ProblemConfigFile {
     cases?: TestCaseConfig[];
     subtasks?: SubtaskConfig[];
     langs?: string[];
+    multi_pass?: number;
     checker?: CompilableSource;
     interactor?: CompilableSource;
     manager?: CompilableSource;
@@ -134,7 +135,7 @@ export interface TestCase {
     time: number;
     memory: number;
     status: number;
-    message: string;
+    message: string | JudgeMessage;
 }
 
 export interface JudgeMessage {

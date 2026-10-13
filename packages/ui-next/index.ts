@@ -1,14 +1,12 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import react from '@vitejs/plugin-react';
 import esbuild from 'esbuild';
 import c2k from 'koa2-connect/ts';
 import { createServer, type Plugin } from 'vite';
-import { serializer } from '@hydrooj/framework';
+import { HandlerCommon, serializer } from '@hydrooj/framework';
 import {
     Context, Handler, Logger,
-    NotFoundError, param, size, Types,
+    NotFoundError, param, SettingModel, sha1, size, Types,
 } from 'hydrooj';
 
 const logger = new Logger('ui-next');
@@ -28,6 +26,20 @@ const PENDING_HTML = `<html>
 const INJECT_MARKER = '<!-- __HYDRO_INJECTION__DO_NOT_REMOVE_THIS__ -->';
 const buildInject = (data: string) => `<script id="__HYDRO_INJECTION__" type="application/json">${data}</script>`;
 
+function getAddonEntries(): Record<string, string> {
+    const entries: Record<string, string> = {};
+    for (const [name, addon] of Object.entries(global.addons)) {
+        const uiEntry = ['ui/index.ts', 'ui/index.tsx', 'ui/index.js', 'ui/index.jsx']
+            .map((f) => path.resolve(addon as string, f))
+            .find((f) => fs.existsSync(f));
+        if (uiEntry) {
+            logger.info('UI entry for addon %s: %s', name, uiEntry);
+            entries[name] = uiEntry;
+        }
+    }
+    return entries;
+}
+
 function hydroPlugins(): Plugin {
     const virtualModuleId = 'virtual:hydro-plugins';
     const resolvedVirtualModuleId = `\0${virtualModuleId}`;
@@ -42,14 +54,12 @@ function hydroPlugins(): Plugin {
         },
         load(id) {
             if (id === resolvedVirtualModuleId) {
-                const entries: string[] = [];
-                for (const addon of Object.values(global.addons)) {
-                    const uiEntry = path.resolve(addon, 'ui', 'index.ts');
-                    if (fs.existsSync(uiEntry)) entries.push(uiEntry);
-                }
-                if (!entries.length) return 'export default [];';
-                const imports = entries.map((e, i) => `import * as plugin${i} from '${e}';`).join('\n');
-                const exports = `export default [${entries.map((_, i) => `plugin${i}`).join(', ')}];`;
+                const entries = getAddonEntries();
+                if (!Object.keys(entries).length) return 'export default [];';
+                const imports = Object.entries(entries).map(([_, e], i) => `import * as plugin${i} from '${e}';`).join('\n');
+                const exports = `export default [${Object.entries(entries).map(([addon, _], i) => {
+                    return `{ name: '${addon}', ...plugin${i} }`;
+                }).join(', ')}];`;
                 return `${imports}\n${exports}`;
             }
             return undefined;
@@ -89,12 +99,69 @@ const federationPlugin: esbuild.Plugin = {
 const vfs: Record<string, string> = {};
 const hashes: Record<string, string> = {};
 
+const applyCss = (css: string) => `
+(() => {
+  const style = document.createElement('style');
+  style.textContent = ${JSON.stringify(css)};
+  document.head.appendChild(style);
+})();
+`;
+
+function addFile(name: string, content: string) {
+    vfs[name] = content;
+    hashes[name] = sha1(content).substring(0, 8);
+}
+
+async function buildI18n() {
+    const localeList: Record<string, { name: string, flag: string }> = {};
+    for (const lang in global.Hydro.locales) {
+        if (!/^[a-zA-Z_]+$/.test(lang)) continue;
+        if (!global.Hydro.locales[lang].__interface) continue;
+        addFile(`lang-${lang}.js`, `window.HydroLocale=${JSON.stringify(global.Hydro.locales[lang][Symbol.for('iterate')])};`);
+        const id = global.Hydro.locales[lang].__id;
+        if (id) localeList[id] = { name: global.Hydro.locales[lang].__langname, flag: global.Hydro.locales[lang].__flag };
+    }
+    addFile('locale-list.js', `window.HydroLocaleList=${JSON.stringify(localeList)};`);
+}
+
+async function buildCodeLangs() {
+    addFile('code-langs.js', `window.HydroCodeLangs=${JSON.stringify(SettingModel.langs)};`);
+}
+
+async function buildVersions() {
+    const versions: Record<string, string> = { ...global.Hydro.version };
+    try {
+        const { simpleGit } = require('simple-git') as typeof import('simple-git');
+        const fetchAddonVersion = async (name: string, addonPath: string) => {
+            try {
+                const git = simpleGit(addonPath);
+                const [log, status] = await Promise.all([git.log(), git.status()]);
+                if (log.all.length > 0) {
+                    let hash = log.all[0].hash.substring(0, 7);
+                    if (!status.isClean()) hash += '-dirty';
+                    versions[name] = versions[name] ? `${versions[name]}-${hash}` : hash;
+                }
+            } catch (e) {
+                logger.debug('Could not get git hash for addon %s: %o', name, e);
+            }
+        };
+        await Promise.all(
+            Object.entries(global.addons)
+                .filter(([name]) => name !== 'hydrooj') // already handled in loader.ts
+                .map(([name, addonPath]) => fetchAddonVersion(name, addonPath as string)),
+        );
+    } catch (e) {
+        logger.debug('simple-git not available: %o', e);
+    }
+    addFile('versions.js', `window.HydroVersions=${JSON.stringify(versions)};`);
+}
+
 class UiNextConstantHandler extends Handler {
     noCheckPermView = true;
 
     @param('name', Types.Filename)
     async all(domainId: string, name: string) {
-        if (!vfs[name]) throw new NotFoundError(name);
+        if (!(name in vfs)) throw new NotFoundError(name);
         this.response.type = 'application/javascript';
         this.response.body = vfs[name];
         this.response.addHeader('ETag', hashes[name]);
@@ -105,14 +172,25 @@ class UiNextConstantHandler extends Handler {
 export async function buildPlugins() {
     const start = Date.now();
     let totalSize = 0;
-    const entries: string[] = [];
-    for (const addon of Object.values(global.addons)) {
-        const uiEntry = path.resolve(addon as string, 'ui', 'index.ts');
-        if (fs.existsSync(uiEntry)) entries.push(uiEntry);
-    }
-    if (!entries.length) {
-        vfs['plugins.js'] = 'window.__hydroPlugins = [];';
-        hashes['plugins.js'] = '00000000';
+    const entries = getAddonEntries();
+
+    const newPluginFiles = new Set<string>();
+    const emit = (name: string, content: string) => {
+        addFile(name, content);
+        newPluginFiles.add(name);
+    };
+    const purge = () => {
+        for (const key of Object.keys(vfs)) {
+            if (!newPluginFiles.has(key)) {
+                delete vfs[key];
+                delete hashes[key];
+            }
+        }
+    };
+
+    if (!Object.keys(entries).length) {
+        emit('plugins.js', 'window.__hydroPlugins = [];');
+        purge();
         logger.info('No plugins to build');
         return;
     }
@@ -121,17 +199,21 @@ export async function buildPlugins() {
         const result = await esbuild.build({
             stdin: {
                 contents: [
-                    ...entries.map((e, i) => `import * as plugin${i} from '${e}';`),
-                    `window.__hydroPlugins = [${entries.map((e, i) => {
-                        const addonName = path.basename(path.resolve(e, '..', '..'));
-                        return `{ name: '${addonName}', ...plugin${i} }`;
-                    }).join(', ')}];`,
+                    ...Object.entries(entries).map(([_, e], i) => `import * as plugin${i} from '${e}';`),
+                    `window.__hydroPlugins = [${Object.entries(entries).map(([n], i) => `{ name: '${n}', ...plugin${i} }`).join(', ')}];`,
                 ].join('\n'),
+                sourcefile: 'plugins.ts',
                 resolveDir: process.cwd(),
                 loader: 'ts',
             },
             bundle: true,
-            format: 'iife',
+            format: 'esm',
+            splitting: true,
+            outdir: 'plugins-dist',
+            entryNames: 'plugins',
+            chunkNames: 'chunk-[hash]',
+            assetNames: 'asset-[hash]',
+            metafile: true,
             write: false,
             target: ['chrome90'],
             plugins: [federationPlugin],
@@ -140,22 +222,74 @@ export async function buildPlugins() {
             jsxImportSource: 'react',
         });
         if (result.errors.length) logger.error('Plugin build errors: %o', result.errors);
-        const content = result.outputFiles?.[0]?.text || 'window.__hydroPlugins = [];';
-        vfs['plugins.js'] = content;
-        hashes['plugins.js'] = crypto.createHash('sha1').update(content).digest('hex').substring(0, 8);
-        totalSize += content.length;
-        logger.success('Plugins built in %dms (%d entries, %s)', Date.now() - start, entries.length, size(totalSize));
+
+        const cssText = new Map<string, string>();
+        for (const f of result.outputFiles) {
+            if (f.path.endsWith('.css')) cssText.set(f.path, f.text);
+        }
+
+        const cssForJs = new Map<string, string>();
+        const claimed = new Set<string>();
+        for (const [rel, meta] of Object.entries(result.metafile.outputs)) {
+            if (!meta.cssBundle) continue;
+            const css = path.resolve(meta.cssBundle);
+            cssForJs.set(path.resolve(rel), css);
+            claimed.add(css);
+        }
+
+        let unclaimedCss = '';
+        for (const [abs, text] of cssText) {
+            if (!claimed.has(abs)) unclaimedCss += text;
+        }
+
+        for (const f of result.outputFiles) {
+            if (f.path.endsWith('.css')) continue;
+
+            const name = path.basename(f.path);
+            let content = f.text;
+
+            const css = cssText.get(cssForJs.get(f.path) ?? '');
+            if (css) content = applyCss(css) + content;
+            if (name === 'plugins.js' && unclaimedCss) content = applyCss(unclaimedCss) + content;
+
+            totalSize += content.length;
+            emit(name, content);
+        }
+
+        purge();
+        logger.success('Plugins built in %dms (%d entries, %s)', Date.now() - start, Object.keys(entries).length, size(totalSize));
     } catch (e) {
         logger.error('Plugin build failed: %o', e);
     }
 }
 
+const HASH_FALLBACK = '00000000';
+
+const getViewLang = (handler: HandlerCommon) => handler.user?.viewLang || handler.session?.viewLang || 'zh';
+
+const injectedScripts = (resolve: (name: string) => string, viewLang: string) => [
+    'code-langs.js',
+    'locale-list.js',
+    `lang-${viewLang}.js`,
+    'versions.js',
+].map((name) => `<script src="${resolve(name)}"></script>`);
+
 export async function apply(ctx: Context) {
     if (process.env.HYDRO_CLI) return;
 
+    ctx.Route('ui_next_constants', '/plugins/:version/:name', UiNextConstantHandler);
+
     if (process.env.DEV) {
+        ctx.on('app/started', async () => {
+            await buildI18n();
+            await buildCodeLangs();
+            await buildVersions();
+        });
+        ctx.on('app/i18n/update', buildI18n);
+        ctx.on('system/setting', buildCodeLangs);
+
         const vite = await createServer({
-            configFile: false,
+            root: __dirname,
             clearScreen: false,
             server: {
                 middlewareMode: true,
@@ -168,12 +302,7 @@ export async function apply(ctx: Context) {
                 },
             },
             appType: 'custom',
-            root: __dirname,
-            base: '/',
-            plugins: [react(), hydroPlugins()],
-            worker: {
-                format: 'es',
-            },
+            plugins: [hydroPlugins()],
         });
         const middleware = c2k(vite.middlewares);
         const capture = ['/@vite/', '/src/', '/node_modules/', '/@react-refresh', '/@fs', '/@id/'];
@@ -191,12 +320,23 @@ export async function apply(ctx: Context) {
                 const serialized = JSON.stringify({
                     HYDRO_INJECTED: true,
                     name: context.handler.context._matchedRouteName,
-                    args,
+                    template: context.handler.response.template || '',
+                    args: {
+                        UserContext: context.UserContext,
+                        UiContext: context.handler.UiContext,
+                        ...args,
+                    },
                     url: context.handler.context.req.url!,
                     route_map: ctx.server.routeMap,
                     endpoint: ctx.setting.get('server.url') || undefined,
                 }, serializer(false, context.handler));
-                const htmlToRender = html.replace(INJECT_MARKER, buildInject(serialized));
+                const ts = Date.now();
+                const devAssetUrl = (name: string) => `/plugins/0/${name}?_=${ts}`;
+                const injectHtml = [
+                    buildInject(serialized),
+                    ...injectedScripts(devAssetUrl, getViewLang(context.handler)),
+                ].join('\n');
+                const htmlToRender = html.replace(INJECT_MARKER, injectHtml);
                 return await vite.transformIndexHtml(context.handler.context.req.url!, htmlToRender);
             },
         });
@@ -206,7 +346,14 @@ export async function apply(ctx: Context) {
             await vite.close().catch((e) => console.error(e));
         };
     } else {
-        ctx.Route('ui_next_constants', '/plugins/:version/:name', UiNextConstantHandler);
+        const build = async () => {
+            await buildPlugins();
+            await buildI18n();
+            await buildCodeLangs();
+            await buildVersions();
+        };
+        ctx.on('app/started', build);
+
         ctx.server.registerRenderer('next', {
             name: 'next',
             accept: [],
@@ -220,23 +367,34 @@ export async function apply(ctx: Context) {
                 const serialized = JSON.stringify({
                     HYDRO_INJECTED: true,
                     name: context.handler.context._matchedRouteName,
-                    args,
+                    template: context.handler.response.template || '',
+                    args: {
+                        UserContext: context.UserContext,
+                        UiContext: context.handler.UiContext,
+                        ...args,
+                    },
                     url: context.handler.context.req.url!,
                     route_map: ctx.server.routeMap,
                     endpoint: ctx.setting.get('server.url') || undefined,
-                    plugins_url: `/plugins/${hashes['plugins.js'] || '00000000'}/plugins.js`,
+                    plugins_url: `/plugins/${hashes['plugins.js'] || HASH_FALLBACK}/plugins.js`,
                 }, serializer(false, context.handler));
-                return html.replace(INJECT_MARKER, buildInject(serialized));
+                const prodAssetUrl = (name: string) => `/plugins/${hashes[name] || HASH_FALLBACK}/${name}`;
+                const injectHtml = [
+                    buildInject(serialized),
+                    ...injectedScripts(prodAssetUrl, getViewLang(context.handler)),
+                ].join('\n');
+                return html.replace(INJECT_MARKER, injectHtml);
             },
         });
-        ctx.on('app/started', buildPlugins);
-        const debouncedBuild = ctx.debounce(buildPlugins, 2000);
+        const debouncedBuild = ctx.debounce(build, 2000);
         const triggerHotUpdate = (filePath?: string) => {
             if (filePath && !filePath.includes('/ui/')) return;
             debouncedBuild();
         };
         ctx.on('app/watch/change', triggerHotUpdate);
         ctx.on('app/watch/unlink', triggerHotUpdate);
-        ctx.on('system/setting', () => debouncedBuild());
+        ctx.on('system/setting', debouncedBuild);
+        ctx.on('app/i18n/update', debouncedBuild);
     }
+    ctx.inject(['model:setting'], buildCodeLangs);
 }

@@ -9,8 +9,9 @@ import {
     ContestScoreboardHiddenError, ValidationError,
 } from '../error';
 import {
-    BaseUserDict, ContestPrintDoc, ContestRule, ContestRules, ProblemDict, RecordDoc,
-    ScoreboardConfig, ScoreboardNode, ScoreboardRow, SubtaskResult, Tdoc,
+    BaseUserDict, ContestJournalEntry, ContestPrintDoc, ContestRule, ContestRules,
+    ContestStatusDoc, ProblemDict, RecordDoc, ScoreboardConfig, ScoreboardNode,
+    ScoreboardRow, SubtaskResult, Tdoc,
 } from '../interface';
 import avatar from '../lib/avatar';
 import bus from '../service/bus';
@@ -60,14 +61,14 @@ export function isNotStarted(tdoc: Tdoc) {
     return (new Date()) < tdoc.beginAt;
 }
 
-export function isOngoing(tdoc: Tdoc, tsdoc?: any) {
+export function isOngoing(tdoc: Tdoc, tsdoc?: ContestStatusDoc): boolean {
     const now = new Date();
     if (tsdoc?.endAt && tsdoc.endAt <= now) return false;
     if (tsdoc && tdoc.duration && tsdoc.startAt <= new Date(Date.now() - Math.floor(tdoc.duration * Time.hour))) return false;
     return (tdoc.beginAt <= now && now < tdoc.endAt);
 }
 
-export function isDone(tdoc: Tdoc, tsdoc?: any) {
+export function isDone(tdoc: Tdoc, tsdoc?: ContestStatusDoc): boolean {
     if (tdoc.endAt <= new Date()) return true;
     if (tsdoc?.endAt && tsdoc.endAt <= new Date()) return true;
     if (tsdoc && tdoc.duration && tsdoc.startAt <= new Date(Date.now() - Math.floor(tdoc.duration * Time.hour))) return true;
@@ -82,6 +83,23 @@ export function isLocked(tdoc: Tdoc, time = new Date()) {
 export function isExtended(tdoc: Tdoc) {
     const now = Date.now();
     return tdoc.penaltySince.getTime() <= now && now < tdoc.endAt.getTime();
+}
+
+async function getScoreboardUdict(
+    tdoc: Tdoc, rankedTsdocs: [number, ContestStatusDoc][], uids: number[], showDisplayName: boolean,
+) {
+    const memberUids = tdoc.allowTeam
+        ? rankedTsdocs.flatMap(([, tsdoc]) => tsdoc.members || [])
+        : [];
+    const udict = await UserModel.getListForRender(tdoc.domainId, [...uids, ...memberUids], showDisplayName ? ['displayName'] : []);
+    if (tdoc.allowTeam) {
+        for (const [, tsdoc] of rankedTsdocs) {
+            if (tsdoc.members?.length && udict[tsdoc.uid]) {
+                (udict[tsdoc.uid] as any).teamMembers = tsdoc.members.filter((uid) => udict[uid]);
+            }
+        }
+    }
+    return udict;
 }
 
 export function buildContestRule<T>(def: Optional<ContestRule<T>, 'applyProjection'>): ContestRule<T>;
@@ -239,7 +257,7 @@ const acm = buildContestRule({
     async scoreboard(config, _, tdoc, pdict, cursor) {
         const rankedTsdocs = await db.ranked(cursor, (a, b) => (a.score || 0) === (b.score || 0) && (a.time || 0) === (b.time || 0));
         const uids = rankedTsdocs.map(([, tsdoc]) => tsdoc.uid);
-        const udict = await UserModel.getListForRender(tdoc.domainId, uids, config.showDisplayName ? ['displayName'] : []);
+        const udict = await getScoreboardUdict(tdoc, rankedTsdocs, uids, config.showDisplayName);
         // Find first accept
         const first = {};
         const data = await document.collStatus.aggregate([
@@ -362,7 +380,7 @@ const oi = buildContestRule({
             row.push({ type: 'string', value: udoc.displayName || '' });
             row.push({ type: 'string', value: udoc.studentId || '' });
         }
-        row.push({ type: 'total_score', value: tsdoc.score || 0 });
+        row.push({ type: 'total_score', value: (tsdoc.score || 0).toString() });
         const accepted = {};
         for (const s of tsdoc.journal || []) {
             if (!pdict[s.pid]) continue;
@@ -414,7 +432,7 @@ const oi = buildContestRule({
     async scoreboard(config, _, tdoc, pdict, cursor) {
         const rankedTsdocs = await db.ranked(cursor, (a, b) => (a.score || 0) === (b.score || 0));
         const uids = rankedTsdocs.map(([, tsdoc]) => tsdoc.uid);
-        const udict = await UserModel.getListForRender(tdoc.domainId, uids, config.showDisplayName ? ['displayName'] : []);
+        const udict = await getScoreboardUdict(tdoc, rankedTsdocs, uids, config.showDisplayName);
         const psdict = {};
         const first = {};
         const useRelativeTime = !!tdoc.duration;
@@ -510,7 +528,7 @@ const strictioi = buildContestRule({
             row.push({ type: 'string', value: udoc.displayName || '' });
             row.push({ type: 'string', value: udoc.studentId || '' });
         }
-        row.push({ type: 'total_score', value: tsdoc.score || 0 });
+        row.push({ type: 'total_score', value: (tsdoc.score || 0).toString() });
         const accepted = {};
         for (const s of tsdoc.journal || []) {
             if (!pdict[s.pid]) continue;
@@ -603,7 +621,7 @@ const ledo = buildContestRule({
         }
         row.push({
             type: 'total_score',
-            value: tsdoc.score || 0,
+            value: (tsdoc.score || 0).toString(),
             hover: tsdoc.score !== tsdoc.originalScore ? _('Original score: {0}').format(tsdoc.originalScore) : '',
         });
         const accepted = {};
@@ -742,9 +760,9 @@ const homework = buildContestRule({
             row.push({ type: 'string', value: udoc.displayName || '' });
             row.push({ type: 'string', value: udoc.studentId || '' });
         }
-        row.push({ type: 'string', value: tsdoc.penaltyScore || 0 });
+        row.push({ type: 'string', value: (tsdoc.penaltyScore || 0).toString() });
         if (config.isExport) {
-            row.push({ type: 'string', value: tsdoc.score || 0 });
+            row.push({ type: 'string', value: (tsdoc.score || 0).toString() });
         }
         row.push({ type: 'time', value: formatSeconds(tsdoc.time || 0, false), raw: tsdoc.time });
         const accepted = {};
@@ -758,9 +776,9 @@ const homework = buildContestRule({
         }
         for (const pid of tdoc.pids) {
             const rid = tsddict[pid]?.rid;
-            const colScore = tsddict[pid]?.penaltyScore ?? '';
-            const colOriginalScore = tsddict[pid]?.score ?? '';
-            const colTime = tsddict[pid]?.time || '';
+            const colScore = (tsddict[pid]?.penaltyScore ?? '').toString();
+            const colOriginalScore = (tsddict[pid]?.score ?? '').toString();
+            const colTime = (tsddict[pid]?.time || '').toString();
             const colTimeStr = colTime ? formatSeconds(colTime, false) : '';
             if (config.isExport) {
                 row.push(
@@ -784,7 +802,7 @@ const homework = buildContestRule({
     async scoreboard(config, _, tdoc, pdict, cursor) {
         const rankedTsdocs = await db.ranked(cursor, (a, b) => a.score === b.score);
         const uids = rankedTsdocs.map(([, tsdoc]) => tsdoc.uid);
-        const udict = await UserModel.getListForRender(tdoc.domainId, uids, config.showDisplayName ? ['displayName'] : []);
+        const udict = await getScoreboardUdict(tdoc, rankedTsdocs, uids, config.showDisplayName);
         const columns = await this.scoreboardHeader(config, _, tdoc, pdict);
         const rows: ScoreboardRow[] = [
             columns,
@@ -805,8 +823,8 @@ export const RULES: ContestRules = {
 
 const collBalloon = db.collection('contest.balloon');
 
-function _getStatusJournal(tsdoc) {
-    return tsdoc.journal.sort((a, b) => (a.rid.getTimestamp() - b.rid.getTimestamp()));
+function _getStatusJournal(tsdoc: ContestStatusDoc): ContestJournalEntry[] {
+    return tsdoc.journal!.sort((a, b) => (a.rid.getTimestamp().getTime() - b.rid.getTimestamp().getTime()));
 }
 
 export async function add(
@@ -902,6 +920,15 @@ export async function getStatus(domainId: string, tid: ObjectId, uid: number) {
     return await document.getStatus(domainId, document.TYPE_CONTEST, tid, uid);
 }
 
+export function getMultiStatus(domainId: string, query: any) {
+    return document.getMultiStatus(domainId, document.TYPE_CONTEST, query);
+}
+
+export async function getTeamVid(domainId: string, tid: ObjectId, uid: number): Promise<number | null> {
+    const s = await getMultiStatus(domainId, { docId: tid, members: uid }).project({ uid: 1 }).limit(1).next();
+    return s?.uid ?? null;
+}
+
 export async function updateStatus(
     domainId: string, tid: ObjectId, uid: number, rid: ObjectId, pid: number,
     {
@@ -923,8 +950,18 @@ export async function updateStatus(
 
 export async function getListStatus(domainId: string, uid: number, tids: ObjectId[]) {
     const r = {};
-    // eslint-disable-next-line no-await-in-loop
-    for (const tid of tids) r[tid.toHexString()] = await getStatus(domainId, tid, uid);
+    for (const tid of tids) {
+        // eslint-disable-next-line no-await-in-loop
+        const tsdoc = await getStatus(domainId, tid, uid);
+        if (tsdoc?.attend) {
+            r[tid.toHexString()] = tsdoc;
+            continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const teamVid = await getTeamVid(domainId, tid, uid);
+        // eslint-disable-next-line no-await-in-loop
+        r[tid.toHexString()] = teamVid ? await getStatus(domainId, tid, teamVid) : tsdoc;
+    }
     return r;
 }
 
@@ -938,8 +975,10 @@ export async function attend(domainId: string, tid: ObjectId, uid: number, paylo
     return {};
 }
 
-export function getMultiStatus(domainId: string, query: any) {
-    return document.getMultiStatus(domainId, document.TYPE_CONTEST, query);
+export async function cancelAttend(domainId: string, tid: ObjectId, uid: number) {
+    await document.deleteMultiStatus(domainId, document.TYPE_CONTEST, { docId: tid, uid });
+    await document.inc(domainId, document.TYPE_CONTEST, tid, 'attend', -1);
+    return {};
 }
 
 export function setStatus(domainId: string, tid: ObjectId, uid: number, $set?: any, $unset?: any) {
@@ -994,6 +1033,19 @@ export async function unlockScoreboard(domainId: string, tid: ObjectId) {
     if (!tdoc.lockAt || tdoc.unlocked) return;
     await edit(domainId, tid, { unlocked: true });
     await recalcStatus(domainId, tid);
+}
+
+export async function isSameTeam(domainId: string, tid: ObjectId, a: number, b: number): Promise<boolean> {
+    if (a === b) return true;
+    const [va, vb] = await Promise.all([getTeamVid(domainId, tid, a), getTeamVid(domainId, tid, b)]);
+    return !!va && va === vb;
+}
+
+export async function isOwnOrTeammateRecord(domainId: string, rdoc: RecordDoc, uid: number): Promise<boolean> {
+    if (rdoc.uid === uid) return true;
+    if (!rdoc.contest) return false;
+    if (RecordModel.RECORD_PRETEST.equals(rdoc.contest) || RecordModel.RECORD_GENERATE.equals(rdoc.contest)) return false;
+    return isSameTeam(domainId, rdoc.contest, rdoc.uid, uid);
 }
 
 export function canViewHiddenScoreboard(this: { user: User }, tdoc: Tdoc) {
@@ -1059,10 +1111,13 @@ export function getClarification(domainId: string, did: ObjectId) {
     return document.get(domainId, document.TYPE_CONTEST_CLARIFICATION, did);
 }
 
-export function getMultiClarification(domainId: string, tid: ObjectId, owner?: number) {
+export function getMultiClarification(domainId: string, tid: ObjectId, owner?: number | number[]) {
+    const ownerFilter = owner === undefined
+        ? {}
+        : { owner: { $in: [0, ...(Array.isArray(owner) ? owner : [owner])] } };
     return document.getMulti(
         domainId, document.TYPE_CONTEST_CLARIFICATION,
-        { parentType: document.TYPE_CONTEST, parentId: tid, ...(typeof owner === 'number' ? { owner: { $in: [owner, 0] } } : {}) },
+        { parentType: document.TYPE_CONTEST, parentId: tid, ...ownerFilter },
     ).sort('_id', -1).toArray();
 }
 
@@ -1071,7 +1126,7 @@ export function applyProjection(tdoc: Tdoc, rdoc: RecordDoc, udoc: User) {
     return RULES[tdoc.rule].applyProjection(tdoc, rdoc, udoc);
 }
 
-export const statusText = (tdoc: Tdoc, tsdoc?: any) => (
+export const statusText = (tdoc: Tdoc, tsdoc?: ContestStatusDoc): string => (
     isNew(tdoc)
         ? 'New'
         : isUpcoming(tdoc)
@@ -1117,7 +1172,7 @@ export async function apply(ctx: Context) {
         if (!bdoc.first) return;
         (async () => {
             const tsdocs = await getMultiStatus(domainId, { docId: tid, subscribe: 1 }).toArray();
-            const uids = Array.from<number>(new Set(tsdocs.map((tsdoc) => tsdoc.uid)));
+            const uids = Array.from<number>(new Set(tsdocs.flatMap((tsdoc) => (tsdoc.members?.length ? tsdoc.members : [tsdoc.uid]))));
             const [team, tdoc, pdoc] = await Promise.all([
                 UserModel.getById(domainId, bdoc.uid),
                 get(domainId, tid),
@@ -1146,7 +1201,11 @@ global.Hydro.model.contest = {
     add,
     getListStatus,
     getMultiStatus,
+    getTeamVid,
+    isSameTeam,
+    isOwnOrTeammateRecord,
     attend,
+    cancelAttend,
     edit,
     del,
     get,

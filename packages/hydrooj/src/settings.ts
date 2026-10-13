@@ -1,4 +1,4 @@
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import Schema from 'schemastery';
 import { Context, Service } from './context';
 import { Logger } from './logger';
@@ -181,7 +181,7 @@ export class SettingService extends Service {
             if (path.some((p) => typeof p === 'symbol')) return currentValue;
             return new Proxy(currentValue, {
                 get(self, key: string) {
-                    return getAccess([...path, ...key]);
+                    return getAccess([...path, key]);
                 },
                 set(self, p: string | symbol, newValue: any) {
                     that.setConfig([...path, p].join(','), newValue);

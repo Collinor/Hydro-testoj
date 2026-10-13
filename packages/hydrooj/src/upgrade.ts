@@ -2,7 +2,7 @@
 /* eslint-disable ts/no-unused-vars */
 /* eslint-disable no-await-in-loop */
 /* eslint-disable ts/naming-convention */
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { ObjectId } from 'mongodb';
 import { randomstring, sleep } from '@hydrooj/utils';
 import { buildContent } from './lib/content';
@@ -102,10 +102,10 @@ export const coreScripts: MigrationScript[] = [
                     doc.domainId, document.TYPE_CONTEST, { docId: doc.docId },
                 ).toArray();
                 for (const ctdoc of ctdocs) {
-                    if (!ctdoc.journal?.filter((i) => isStringPid(i.pid)).length) continue;
+                    if (!ctdoc.journal?.filter((i) => isStringPid(i.pid as any)).length) continue;
                     const journal = [];
                     for (const i of ctdoc.journal) {
-                        const pdoc = await getProblem(doc.domainId, i.pid);
+                        const pdoc = await getProblem(doc.domainId, i.pid as any);
                         if (pdoc) i.pid = pdoc.docId;
                         journal.push(i);
                     }

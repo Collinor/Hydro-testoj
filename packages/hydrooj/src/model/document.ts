@@ -4,9 +4,9 @@ import {
 } from 'mongodb';
 import { Context } from '../context';
 import {
-    Content, ContestClarificationDoc, ContestPrintDoc, DiscussionDoc,
-    DiscussionReplyDoc, ProblemDoc, ProblemStatusDoc,
-    Tdoc, TrainingDoc,
+    Content, ContestClarificationDoc, ContestPrintDoc, ContestStatusDoc,
+    DiscussionDoc, DiscussionReplyDoc, ProblemDoc, ProblemStatusDoc,
+    Tdoc, TrainingDoc, TrainingStatusDoc,
 } from '../interface';
 import bus from '../service/bus';
 import db from '../service/db';
@@ -45,6 +45,8 @@ export interface DocType {
 
 export interface DocStatusType {
     [TYPE_PROBLEM]: ProblemStatusDoc;
+    [TYPE_CONTEST]: ContestStatusDoc;
+    [TYPE_TRAINING]: TrainingStatusDoc;
     // FIXME: this need to be typed
     [key: number]: any;
 }
@@ -447,6 +449,7 @@ export async function apply(ctx: Context) {
         { key: { domainId: 1, docType: 1, docId: 1, status: 1, rid: 1, rp: 1 }, name: 'rp', sparse: true },
         { key: { domainId: 1, docType: 1, docId: 1, score: -1 }, name: 'contestRuleOI', sparse: true },
         { key: { domainId: 1, docType: 1, docId: 1, accept: -1, time: 1 }, name: 'contestRuleACM', sparse: true },
+        { key: { domainId: 1, docType: 1, docId: 1, members: 1 }, name: 'contestTeam', partialFilterExpression: { members: { $exists: true } } },
         { key: { domainId: 1, docType: 1, uid: 1, enroll: 1, docId: 1 }, name: 'training', sparse: true },
     );
 }

@@ -84,6 +84,7 @@ export default (logger, xff, xhost) => async (ctx: KoaContext, next: Next) => {
                         const inject = request.headers['x-hydro-inject'].toString().toLowerCase().split(',').map((i) => i.trim());
                         if (inject.includes('pagename')) {
                             ctx.set('x-hydro-page', ctx._matchedRouteName || '');
+                            ctx.set('x-hydro-template', response.template || '');
                         }
                         if (response.body !== null && typeof response.body === 'object') {
                             if (inject.includes('uicontext')) response.body.UiContext = UiContext;
@@ -124,6 +125,7 @@ export default (logger, xff, xhost) => async (ctx: KoaContext, next: Next) => {
         }
     } finally {
         if (!request.websocket) {
+            if (ctx.handler) ctx.vary('Accept');
             if (response.etag && request.headers['if-none-match'] === response.etag) {
                 ctx.response.status = 304;
             } else if (response.redirect && !request.json) {
