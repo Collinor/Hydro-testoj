@@ -1,0 +1,21 @@
+{% if handler.user.hasPerm(perm.PERM_SUBMIT_PROBLEM) and not tdoc and pdoc.config.type in ['default', 'remote_judge'] and (not pdoc.config.langs or pdoc.config.langs.length) %}
+<section class="copylc-workbench" data-copylc-workbench>
+  <div class="copylc-pane copylc-code-pane">
+    <header class="copylc-pane__bar"><h2><span class="copylc-green" aria-hidden="true">&lt;/&gt;</span> {{ _('Code') }}</h2><span class="copylc-muted">{{ _('copylc.workspace') }}</span></header>
+    <div class="copylc-code-toolbar">
+      <label class="copylc-sr-only" for="copylc-language">{{ _('Code language') }}</label><select id="copylc-language"></select>
+      <span class="copylc-editor-state copylc-muted" role="status" data-copylc-save>{{ _('copylc.loadingEditor') }}</span>
+      <button type="button" class="copylc-button" data-copylc-run>{{ _('Run Pretest') }}</button>
+      <button type="button" class="copylc-button copylc-button--green" data-copylc-submit>{{ _('Submit') }}</button>
+    </div>
+    <div class="copylc-editor" data-copylc-editor><textarea class="copylc-code-fallback" aria-label="{{ _('Code') }}" spellcheck="false"></textarea></div>
+  </div>
+  <div class="copylc-pane copylc-test-pane">
+    <header class="copylc-pane__bar"><h2>{{ _('Pretest') }}</h2><a href="{{ url('record_main', query={pid:pdoc.docId}) }}">{{ _('Submissions') }} ↗</a></header>
+    <div class="copylc-test-grid">
+      <label>{{ _('Input') }}<textarea class="textbox monospace" data-copylc-input spellcheck="false"></textarea></label>
+      <div><h3>{{ _('Output') }}</h3><pre class="copylc-output" tabindex="0" role="status" data-copylc-output>{{ _('copylc.runFirst') }}</pre><a data-copylc-record hidden>{{ _('View Record') }} →</a></div>
+    </div>
+  </div>
+</section>
+{% endif %}

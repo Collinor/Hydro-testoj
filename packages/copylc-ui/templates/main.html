@@ -1,0 +1,28 @@
+{% set page_name = "homepage" %}
+{% extends "layout/basic.html" %}
+{% import "components/contest.html" as contest with context %}
+{% import "components/problem.html" as problem with context %}
+{% import "components/user.html" as user with context %}
+{% block content %}
+<div class="copylc-home">
+  <div class="copylc-feed">
+    <header class="copylc-feed__heading"><span class="copylc-kicker">{{ _('copylc.community') }}</span><h1>{{ _('homepage') }}</h1></header>
+    {% for column in contents %}{% for s in column.sections %}
+      {% set payload = s[1] %}
+      <div class="copylc-feed__section copylc-home-{{ s[0] }}">
+      {% if s[0] == 'discussion' %}
+        {% include "copylc/home-discussion.html" %}
+      {% elif templateExists("partials/homepage/" + s[0] + ".html") %}
+        {% include "partials/homepage/" + s[0] + ".html" %}
+      {% else %}
+        {% set payload = _("Template {0} not found.").format(s[0]) %}{% include "partials/homepage/error.html" %}
+      {% endif %}
+      </div>
+    {% endfor %}{% endfor %}
+  </div>
+  <aside class="copylc-home__aside" aria-label="{{ _('Navigation') }}">
+    <div class="copylc-feature-strip copylc-feature-strip--vertical">{% include "copylc/features.html" %}</div>
+    <div class="copylc-aside-note"><span class="copylc-kicker">{{ _('copylc.practice') }}</span><h2>{{ _('copylc.learn') }}</h2><p>{{ _('copylc.learnDescription') }}</p></div>
+  </aside>
+</div>
+{% endblock %}

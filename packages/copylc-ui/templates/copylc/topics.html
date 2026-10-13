@@ -1,0 +1,8 @@
+{% set categories = handler.ctx.setting.get('problem.categories')|parseYaml %}
+<nav class="copylc-topics" aria-label="{{ _('Categories') }}">
+  <a href="{{ url('problem_main') }}" class="copylc-topic{% if not qs %} copylc-topic--active{% endif %}">{{ _('copylc.allProblems') }}</a>
+  {% for category, sub_categories in categories %}
+    <a class="copylc-topic" href="{{ url('problem_main', query={q:'category:'+category}) }}">{{ category }}</a>
+    {% for sub_category in sub_categories %}<a class="copylc-topic" href="{{ url('problem_main', query={q:'category:'+sub_category}) }}">{{ sub_category }}</a>{% endfor %}
+  {% endfor %}
+</nav>

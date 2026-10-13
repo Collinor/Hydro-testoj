@@ -8,11 +8,11 @@ export interface SixthUIPalette {
 
 export const palettePresets = {
     cheese: {
-        background: '#C2784B',
+        background: '#FFE082',
         theme: '#FFD54F',
         title: '#9A450D',
         text: '#8B4513',
-        accent: '#FFE082',
+        accent: '#C2784B',
     },
 } satisfies Record<string, SixthUIPalette>;
 

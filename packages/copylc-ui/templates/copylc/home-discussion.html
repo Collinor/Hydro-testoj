@@ -1,0 +1,19 @@
+{% set ddocs = payload[0] %}
+{% set vndict = payload[1] %}
+{% if ddocs.length %}
+<section class="copylc-discussions">
+  <h2>{{ _('Discussion') }}</h2>
+  {% for ddoc in ddocs %}
+  <article class="copylc-feed-item">
+    <img src="{{ avatarUrl(udict[ddoc.owner].avatar, 48) }}" alt="{{ udict[ddoc.owner].uname }}" width="40" height="40" loading="lazy">
+    <div>
+      <div class="copylc-muted">{{ datetimeSpan(ddoc.updateAt)|safe }}</div>
+      <h3><a href="{{ url('discussion_detail', did=ddoc._id, anchor=ddoc.updateAt.getTime()) }}">{{ ddoc.title }}</a></h3>
+      <p>{{ user.render_inline(udict[ddoc.owner], badge=false) }} · {{ _('{0} views').format(ddoc.views) }} · {{ ddoc.nReply }} {{ _('Comments') }}</p>
+      <a class="copylc-muted" href="{{ url('discussion_node', type=model.discussion.typeDisplay[ddoc.parentType], name=ddoc.parentId) }}">{{ vndict[ddoc.parentType][ddoc.parentId].title|default(_('(missing)')) }}</a>
+    </div>
+  </article>
+  {% endfor %}
+  <a class="copylc-more" href="{{ url('discussion_main') }}">{{ _('More') }} →</a>
+</section>
+{% endif %}

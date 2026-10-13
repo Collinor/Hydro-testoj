@@ -1,6 +1,6 @@
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-const types = require.context('@types/node/', true, /\.d\.ts$/, 'lazy-once');
+const types = require.context('@types/node/', false, /^\.\/index\.d\.ts$/, 'lazy-once');
 
 const diagnosticsOptions: monaco.languages.typescript.DiagnosticsOptions = {
   noSemanticValidation: false,
@@ -29,7 +29,7 @@ export async function loadTypes() {
   for (const key of types.keys()) {
     if (!key.startsWith('.')) continue;
     const m = await types(key);
-    const val = m.replace('declare var require: NodeRequire;', '');
+    const val = (typeof m === 'string' ? m : m.default).replace('declare var require: NodeRequire;', '');
     if (val.includes('declare module ')) {
       modules.push(val.toString().split('declare module \'')[1].split('\'')[0]);
     }

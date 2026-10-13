@@ -1,0 +1,43 @@
+<header class="copylc-header">
+  <nav class="copylc-nav" aria-label="{{ _('Navigation') }}">
+    <a class="copylc-brand" href="{{ url('homepage') }}" aria-label="{{ model.system.get('server.name') }}">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m21 4-12 12a6 6 0 0 0 0 8l4 4a6 6 0 0 0 8 0" fill="none" stroke="#ffa116" stroke-width="3.5" stroke-linecap="round"/><path d="m10 15 6-6 9 8M15 21h12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      <span>{{ UiContext.domain.name or model.system.get('server.name') }}</span>
+    </a>
+    <div class="copylc-nav__links">
+      {% for item in overrideNav|default(ui.getNodes('Nav')) %}{% if item.checker(handler) %}
+      <a href="{{ url(item.name, item.args, query=item.args.query(handler) if typeof(item.args.query) == 'function' else item.args.query or {}) }}" {% if page_name.startsWith(item.args.prefix) %}aria-current="page"{% endif %}>{{ _(item.displayName or item.name) }}</a>
+      {% endif %}{% endfor %}
+    </div>
+    <div class="copylc-nav__account">
+      {% if not handler.user.hasPriv(PRIV.PRIV_USER_PROFILE) %}
+        <a class="copylc-button" href="{{ url('user_login') }}" name="nav_login">{{ _('Login') }}</a>
+        {% if handler.user.hasPriv(PRIV.PRIV_REGISTER_USER) and model.system.get('server.login') %}<a class="copylc-button copylc-button--amber" href="{{ url('user_register') }}">{{ _('Sign Up') }}</a>{% endif %}
+        <details class="copylc-dropdown"><summary>{{ _('Language') }}</summary><div class="copylc-dropdown__menu">
+        {% for k, v in model.setting.SETTINGS_BY_KEY['viewLang'].range %}<a href="{{ url('switch_language', lang=k) }}">{{ v }}</a>{% endfor %}
+        </div></details>
+      {% else %}
+        <a class="copylc-icon-link" href="{{ url('home_messages') }}" aria-label="{{ _('home_messages') }}"><span class="icon icon-comment--multiple" aria-hidden="true"></span></a>
+        <details class="copylc-dropdown"><summary><img src="{{ avatarUrl(handler.user.avatar, 32) }}" width="30" height="30" alt=""><span>{{ handler.user.uname }}</span><span aria-hidden="true">⌄</span></summary>
+          <div class="copylc-dropdown__menu">
+            <a href="{{ url('user_detail', uid=handler.user._id) }}">{{ _('My Profile') }}</a>
+            <a href="{{ url('home_settings', category='account') }}">{{ _('home_account') }}</a>
+            <a href="{{ url('home_settings', category='preference') }}">{{ _('home_preference') }}</a>
+            <a href="{{ url('home_security') }}">{{ _('home_security') }}</a>
+            <a href="{{ url('home_domain') }}">{{ _('My Domains') }}</a>
+            {% if handler.user.hasPriv(PRIV.PRIV_CREATE_FILE) %}<a href="{{ url('home_files') }}">{{ _('My Files') }}</a>{% endif %}
+            {% for item in ui.getNodes('UserDropdown') %}{% if item.checker(handler) %}{% set args = (item.args(handler) if typeof(item.args)=='function' else item.args) or {} %}<a href="{{ url(item.name, args) }}">{{ _(args.displayName or item.name) }}</a>{% endif %}{% endfor %}
+            {% if handler.user.hasPriv(PRIV.PRIV_EDIT_SYSTEM) %}<a href="#" name="nav_switch_account">{{ _('Switch account') }}</a>{% endif %}
+            <a href="{{ url('user_logout') }}" name="nav_logout">{{ _('Logout') }}</a>
+          </div>
+        </details>
+        {% if model.system.get('ui-default.domainNavigation') %}
+        <details class="copylc-dropdown copylc-domain"><summary>{{ UiContext.domain.name }} <span aria-hidden="true">⌄</span></summary><div class="copylc-dropdown__menu">
+          {% for ddoc in handler.user.domains %}<a href="{{ url('homepage', domainId=ddoc._id) }}">{{ ddoc.name }}</a>{% endfor %}
+          <a href="{{ url('home_domain') }}">{{ _('Manage') }}</a>
+        </div></details>
+        {% endif %}
+      {% endif %}
+    </div>
+  </nav>
+</header>

@@ -1,0 +1,30 @@
+copylc.practice: Practice & improve
+copylc.explore: Explore
+copylc.allProblems: All problems
+copylc.community: Community
+copylc.learn: Build your next breakthrough
+copylc.learnDescription: Explore problems, train your skills, and learn with the community.
+copylc.calendar: Practice calendar
+copylc.calendarNote: Today is highlighted. This calendar does not indicate completed practice.
+copylc.skip: Skip to content
+copylc.sort: Sort problems
+copylc.workspace: Workspace
+copylc.loadingEditor: Loading editor…
+copylc.saved: Saved locally
+copylc.unsaved: Local storage unavailable
+copylc.runFirst: Run your code to see the result here.
+copylc.editorFallback: Editor unavailable. You can continue in the text editor.
+copylc.contact: Contact
+copylc.activityNote: Available activities are listed below. Daily submission history is not provided by this page.
+copylc.running: Waiting for judge…
+copylc.connectionClosed: Live updates are unavailable. Open the record to see its status.
+copylc.connectionError: Could not read the judge update. Open the record for details.
+copylc.noLanguages: No available submission language.
+copylc.selectLanguage: Select a language
+copylc.month: Month
+copylc.day: Day
+copylc.today: Today
+copylc.acceptance: Acceptance
+copylc.noSubmission: No submission yet.
+copylc.problemList: Problem list
+copylc.width: Description width

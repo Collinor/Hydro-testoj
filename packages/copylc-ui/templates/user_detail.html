@@ -1,0 +1,37 @@
+{% import "components/home.html" as home with context %}
+{% import "components/problem.html" as problem with context %}
+{% extends "layout/basic.html" %}
+{% block content %}
+{{ set(UiContext, 'udoc', udoc) }}
+<div class="copylc-profile">
+  <aside class="copylc-profile__sidebar">
+    <div class="copylc-profile__identity"><img class="copylc-profile__avatar" src="{{ avatarUrl(udoc.avatar, 120) }}" alt="{{ udoc.uname }}" width="96" height="96"><div><h1>{{ udoc.uname }}</h1>{% if handler.user.hasPerm(perm.PERM_VIEW_USER_PRIVATE_INFO) and udoc.displayName %}<p>{{ udoc.displayName }}</p>{% endif %}<p>{{ _('UID') }} {{ udoc._id }}</p><p>{{ _('Rank') }} <strong>{{ udoc.rank|default('?') }}</strong></p></div></div>
+    {% if isSelfProfile %}<a class="copylc-button copylc-button--green copylc-profile__edit" href="{{ url('home_settings', category='account') }}">{{ _('Edit Profile') }}</a>{% endif %}
+    {% if udoc._id != 1 and not udoc.hasPriv(PRIV.PRIV_USER_PROFILE) %}<p>{{ _('This user was banned.') }}</p>{% endif %}
+    <div class="copylc-profile__section"><h2>{{ _('Information') }}</h2><p>{{ _('Registered at') }} {{ datetimeSpan(udoc.regat)|safe }}</p><p>{{ _('last login at') }} {{ datetimeSpan(udoc.loginat)|safe }}</p>{% if sdoc and sdoc.updateAt %}<p>{{ _('last active at') }} {{ datetimeSpan(sdoc.updateAt)|safe if Date.now() - sdoc.updateAt.getTime() > 300000 else _('just now') }}</p>{% else %}<p>{{ _('currently offline') }}</p>{% endif %}</div>
+    <div class="copylc-profile__section"><h2>{{ _('copylc.community') }}</h2><dl class="copylc-stats"><div><dt>{{ _('Submitted') }}</dt><dd>{{ udoc.nSubmit or 0 }}</dd></div><div><dt>{{ _('Accepted') }}</dt><dd>{{ udoc.nAccept or 0 }}</dd></div><div><dt>{{ _('Solutions Liked') }}</dt><dd>{{ udoc.nLiked or 0 }}</dd></div><div><dt>RP</dt><dd>{{ udoc.rp|default(0)|round(2) }}</dd></div></dl></div>
+    {% if tags.length %}<div class="copylc-profile__section"><h2>{{ _('Problem Tags') }}</h2><div class="copylc-tags">{% for tag in tags %}<span>{{ tag[0] }} <small>×{{ tag[1] }}</small></span>{% endfor %}</div></div>{% endif %}
+    <div class="copylc-profile__section"><h2>{{ _('copylc.contact') }}</h2><a href="{{ url('home_messages', query={target:udoc._id}) }}">{{ _('Send Message') }}</a>
+      {% if udoc.mail %}<button class="copylc-button" type="button" data-copy="{{ udoc.mail|base64_encode }}">{{ _('Copy Email') }}</button>{% endif %}
+      {% if udoc.qq %}<button class="copylc-button" type="button" data-copy="{{ udoc.qq|base64_encode }}">{{ _('Copy QQ Number') }}</button>{% endif %}
+      {% if udoc.wechat %}<button class="copylc-button" type="button" data-copy="{{ udoc.wechat|base64_encode }}">{{ _('Copy WeChat Account') }}</button>{% endif %}
+      {% if udoc.gender and udoc.gender != model.builtin.USER_GENDER_OTHER %}<span>{{ model.builtin.USER_GENDER_RANGE[udoc.gender] }}</span>{% endif %}
+      {% if udoc.hasPriv(PRIV.PRIV_MOD_BADGE) %}<span class="copylc-badge">SU</span>{% elif udoc.hasPerm(perm.PERM_MOD_BADGE) %}<span class="copylc-badge">MOD</span>{% endif %}
+    </div>
+    {% if isSelfProfile %}{{ home.render_sidebar() }}{% endif %}
+  </aside>
+  <div class="copylc-profile__main">
+    <div class="copylc-profile__summary">
+      <section class="copylc-pane copylc-solved"><div class="copylc-solved__ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="51" fill="none" stroke="#8d691f" stroke-width="4" stroke-dasharray="105 215" transform="rotate(-153 60 60)"/><circle cx="60" cy="60" r="51" fill="none" stroke="#287f7b" stroke-width="4" stroke-dasharray="100 220" transform="rotate(85 60 60)"/><circle cx="60" cy="60" r="51" fill="none" stroke="#874b4b" stroke-width="4" stroke-dasharray="92 228" transform="rotate(-28 60 60)"/></svg><div><strong>{{ udoc.nAccept or 0 }}</strong><span>{{ _('Accepted') }}</span></div></div><dl class="copylc-summary-stats"><div><dt>{{ _('Submitted') }}</dt><dd>{{ udoc.nSubmit or 0 }}</dd></div><div><dt>{{ _('Rank') }}</dt><dd>{{ udoc.rank|default('?') }}</dd></div><div><dt>RP</dt><dd>{{ udoc.rp|default(0)|round(2) }}</dd></div></dl></section>
+      <section class="copylc-pane copylc-bio"><h2>{{ _('Bio') }}</h2>{% if udoc.bio %}<div class="typo richmedia">{{ udoc.bio|markdown|safe }}</div>{% else %}<p class="copylc-muted">{{ _("This person is lazy and didn't write anything.") }}</p>{% endif %}</section>
+    </div>
+    <section class="copylc-pane copylc-activity-summary"><h2>{{ _('Recent Activities') }}</h2><div class="copylc-activity-summary__stats"><span><strong>{{ tdocs.length }}</strong> {{ _('Contest') }}</span><span><strong>{{ pdocs.length }}</strong> {{ _('Accepted Problems') }}</span></div><p class="copylc-muted">{{ _('copylc.activityNote') }}</p></section>
+    <section class="section copylc-profile__tabs"><div class="section__tab-container"><ul class="section__tabs">
+      <li class="section__tab-item"><h2 class="section__tab-title">{{ _('Accepted Problems') }}</h2><div class="section__tab-main"><div class="section__body">
+      {% if pdocs.length %}<ul class="copylc-accepted-list">{% for pdoc in pdocs %}<li>{{ problem.render_problem_title(pdoc, show_tags=false) }}</li>{% endfor %}</ul>{% else %}{{ nothing.render('Sorry, there are no problems in the problem set.') }}{% endif %}
+      </div></div></li>
+      {% for page in findSubModule('partials/user_detail/') %}{% include page %}{% endfor %}
+    </ul></div></section>
+  </div>
+</div>
+{% endblock %}

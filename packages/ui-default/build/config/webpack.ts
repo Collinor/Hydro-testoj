@@ -81,8 +81,11 @@ export default async function (env: { watch?: boolean, production?: boolean, mea
       options: {
         stylusOptions: {
           preferPathResolver: 'webpack',
-          use: [require('rupture')()],
-          import: ['~vj/common/common.inc.styl'],
+          use: [require('rupture')({ implicit: false })],
+          import: [
+            require.resolve('rupture/rupture/index.styl'),
+            root('common/common.inc.styl'),
+          ],
         },
       },
     };
@@ -184,7 +187,7 @@ export default async function (env: { watch?: boolean, production?: boolean, mea
           },
         },
         {
-          test: /\.ts$/,
+          test: /\.d\.ts$/,
           include: /@types\//,
           type: 'asset/inline',
           generator: {

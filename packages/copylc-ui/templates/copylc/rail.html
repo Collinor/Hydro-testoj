@@ -1,0 +1,11 @@
+<nav class="copylc-rail" aria-label="{{ _('Navigation') }}">
+  {% for item in ui.getNodes('Nav') %}{% if item.checker(handler) %}
+    <a href="{{ url(item.name, item.args, query=item.args.query(handler) if typeof(item.args.query) == 'function' else item.args.query or {}) }}" {% if page_name.startsWith(item.args.prefix) %}aria-current="page"{% endif %}>
+      <span class="copylc-rail__mark" aria-hidden="true">{% if item.name == 'problem_main' %}⌘{% elif item.name == 'contest_main' %}♜{% elif item.name == 'discussion_main' %}☷{% else %}◇{% endif %}</span>{{ _(item.displayName or item.name) }}
+    </a>
+  {% endif %}{% endfor %}
+  {% if handler.user.hasPriv(PRIV.PRIV_USER_PROFILE) %}
+  <div class="copylc-rail__divider"></div>
+  <a href="{{ url('user_detail', uid=handler.user._id) }}"><span class="copylc-rail__mark" aria-hidden="true">☆</span>{{ _('My Profile') }}</a>
+  {% endif %}
+</nav>

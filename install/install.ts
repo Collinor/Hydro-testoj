@@ -2,7 +2,7 @@
 /* eslint-disable no-sequences */
 import { execSync, ExecSyncOptions } from 'child_process';
 import crypto from 'crypto';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import net from 'net';
 import os, { cpus } from 'os';
 import { createInterface } from 'readline/promises';
@@ -178,6 +178,50 @@ let password = crypto.randomBytes(32).toString('hex');
 let CN = true;
 
 const nixProfile = `${process.env.HOME}/.nix-profile/`;
+if (!process.env.PATH?.split(':').includes(`${nixProfile}bin`)) {
+    process.env.PATH = `${nixProfile}bin:${process.env.PATH || ''}`;
+}
+const hydroStartScript = `${process.env.HOME}/.hydro/start-hydrooj.cjs`;
+const hydroStartSource = `const net = require('net');
+const { spawn } = require('child_process');
+
+const deadline = Date.now() + 30000;
+const waitForSandbox = () => new Promise((resolve, reject) => {
+    const attempt = () => {
+        const socket = net.createConnection({ host: '127.0.0.1', port: 5050 });
+        socket.once('connect', () => {
+            socket.destroy();
+            resolve();
+        });
+        socket.once('error', () => {
+            socket.destroy();
+            if (Date.now() >= deadline) reject(new Error('hydro-sandbox did not become ready on 127.0.0.1:5050 within 30 seconds'));
+            else setTimeout(attempt, 250);
+        });
+    };
+    attempt();
+});
+
+waitForSandbox().then(() => {
+    const nixBin = \`\${process.env.HOME}/.nix-profile/bin\`;
+    const path = [nixBin, process.env.PATH].filter(Boolean).join(':');
+    const child = spawn('hydrooj', process.argv.slice(2), {
+        env: { ...process.env, PATH: path },
+        stdio: 'inherit',
+    });
+    child.once('error', (error) => {
+        console.error(error);
+        process.exitCode = 1;
+    });
+    child.once('exit', (code, signal) => {
+        if (signal) process.kill(process.pid, signal);
+        else process.exitCode = code ?? 1;
+    });
+}).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+`;
 const entry = (source: string, target = source, ro = true) => `\
   - type: bind
     source: ${source}
@@ -558,6 +602,25 @@ ${nixConfBase}`);
             () => writeFileSync(`${process.env.HOME}/.hydro/mount.yaml`, mount),
             // eslint-disable-next-line max-len
             `pm2 start bash --name hydro-sandbox -- -c "ulimit -s unlimited && hydro-sandbox -mount-conf ${process.env.HOME}/.hydro/mount.yaml -http-addr=localhost:5050"`,
+            async () => {
+                const startedAt = Date.now();
+                while (Date.now() - startedAt < 30000) {
+                    const ready = await new Promise<boolean>((resolve) => {
+                        const socket = net.createConnection({ host: '127.0.0.1', port: 5050 });
+                        socket.once('connect', () => {
+                            socket.destroy();
+                            resolve(true);
+                        });
+                        socket.once('error', () => {
+                            socket.destroy();
+                            resolve(false);
+                        });
+                    });
+                    if (ready) return;
+                    await sleep(250);
+                }
+                throw new Error('hydro-sandbox did not become ready on 127.0.0.1:5050 within 30 seconds');
+            },
             ...installAsJudge ? [] : [
                 () => console.log(`WiredTiger cache size: ${wtsize}GB`),
                 // The only thing mongod writes to stderr is 'libcurl no version information available'
@@ -583,7 +646,11 @@ ${nixConfBase}`);
                     exec('hydrooj cli system set server.xhost x-forwarded-host');
                     exec('hydrooj cli system set server.xproxy true');
                 },
-                'pm2 start hydrooj',
+                () => {
+                    writeFileSync(hydroStartScript, hydroStartSource);
+                    chmodSync(hydroStartScript, 0o755);
+                },
+                `pm2 start node --name hydrooj --restart-delay 1000 -- ${hydroStartScript}`,
             ],
             'pm2 startup',
             'pm2 save',

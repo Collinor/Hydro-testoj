@@ -1,0 +1,8 @@
+{% for item in ui.getNodes('Nav') %}{% if item.name in ['problem_main', 'training_main', 'contest_main', 'discussion_main'] and item.checker(handler) %}
+  <a class="copylc-feature copylc-feature--{{ loop.index0 % 3 }}" href="{{ url(item.name, item.args, query=item.args.query(handler) if typeof(item.args.query) == 'function' else item.args.query or {}) }}">
+    <span class="copylc-feature__eyebrow">{{ _('copylc.practice') }}</span>
+    <strong>{{ _(item.displayName or item.name) }}</strong>
+    <span class="copylc-feature__link">{{ _('copylc.explore') }} <span aria-hidden="true">↗</span></span>
+    <svg class="copylc-feature__art" viewBox="0 0 120 120" aria-hidden="true"><path d="M30 20 85 48 35 90M85 48 95 100M30 20 35 90 95 100" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="30" cy="20" r="12"/><circle cx="85" cy="48" r="18"/><circle cx="35" cy="90" r="10"/><circle cx="95" cy="100" r="13"/></svg>
+  </a>
+{% endif %}{% endfor %}

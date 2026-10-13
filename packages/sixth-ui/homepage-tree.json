@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "root": {
+    "id": "home",
+    "label": "SixthOJ",
+    "action": {
+      "type": "route",
+      "name": "homepage"
+    },
+    "children": [
+      {
+        "id": "problems",
+        "labelKey": "problem_main",
+        "side": 0,
+        "action": {
+          "type": "route",
+          "name": "problem_main"
+        }
+      },
+      {
+        "id": "training_homework",
+        "labelKey": "training_homework",
+        "side": 1,
+        "action": { "type": "expand" },
+        "children": [
+          {
+            "id": "training",
+            "labelKey": "training_main",
+            "side": 0,
+            "action": { "type": "route", "name": "training_main" }
+          },
+          {
+            "id": "homework",
+            "labelKey": "homework_main",
+            "side": 1,
+            "action": { "type": "route", "name": "homework_main" }
+          }
+        ]
+      },
+      {
+        "id": "contests",
+        "labelKey": "contest_main",
+        "side": 2,
+        "action": {
+          "type": "route",
+          "name": "contest_main"
+        }
+      },
+      {
+        "id": "user",
+        "labelKey": "user_detail",
+        "side": 3,
+        "childSector": "bottom-right",
+        "requiresAuth": true,
+        "action": { "type": "expand" },
+        "children": [
+          {
+            "id": "user_profile",
+            "labelKey": "My Profile",
+            "side": 4,
+            "action": {
+              "type": "route",
+              "name": "user_detail",
+              "args": { "uid": "$currentUser" }
+            }
+          },
+          {
+            "id": "user_account_settings",
+            "labelKey": "Settings",
+            "side": 1,
+            "action": {
+              "type": "route",
+              "name": "home_settings",
+              "args": { "category": "account" }
+            }
+          },
+          {
+            "id": "user_messages",
+            "labelKey": "home_messages",
+            "side": 5,
+            "action": { "type": "route", "name": "home_messages" }
+          },
+          {
+            "id": "user_domain_list",
+            "labelKey": "My Domains",
+            "side": 4,
+            "action": { "type": "route", "name": "home_domain" }
+          },
+          {
+            "id": "user_files",
+            "labelKey": "My Files",
+            "side": 3,
+            "action": { "type": "route", "name": "home_files" }
+          },
+          {
+            "id": "user_logout",
+            "labelKey": "Logout",
+            "side": 2,
+            "action": { "type": "route", "name": "user_logout" }
+          }
+        ]
+      },
+      {
+        "id": "login",
+        "labelKey": "user_login",
+        "side": 3,
+        "requiresGuest": true,
+        "action": {
+          "type": "route",
+          "name": "user_login"
+        }
+      },
+      {
+        "id": "community",
+        "labelKey": "community",
+        "side": 4,
+        "action": {
+          "type": "expand"
+        },
+        "children": [
+          {
+            "id": "discussions",
+            "labelKey": "discussion_main",
+            "side": 4,
+            "action": {
+              "type": "route",
+              "name": "discussion_main"
+            }
+          },
+          {
+            "id": "ranking",
+            "labelKey": "ranking",
+            "side": 3,
+            "action": {
+              "type": "route",
+              "name": "ranking"
+            }
+          }
+        ]
+      },
+      {
+        "id": "records",
+        "labelKey": "record_main",
+        "side": 5,
+        "action": {
+          "type": "route",
+          "name": "record_main"
+        }
+      }
+    ]
+  }
+}
